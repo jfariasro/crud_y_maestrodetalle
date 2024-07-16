@@ -1,0 +1,147 @@
+﻿@page "/"
+@using AppWebBlazor.Client.Services.Interfaces
+@using AppWebBlazor.Shared
+
+@inject IProductoService productoService;
+@inject IVentaService ventaService;
+
+
+<div class="content">
+
+    <div class="row">
+        <div class="col-4">
+            <InputText class="form-control" placeholder="Nombre Cliente" @bind-Value="venta.Cliente"></InputText>
+        </div>
+    </div>
+
+    <hr />
+    <div class="row">
+        <div class="col-4">
+
+            <select class="form-select" value="@idproduto" @onchange="ProductoSeleccionado">
+                <option value="0">-- Seleccionar --</option>
+                @foreach (var item in listaProducto)
+                {
+                    <option value="@item.Idproducto"> @item.Nombre </option>
+                }
+            </select>
+        </div>
+
+        <div class="col-2">
+            <InputNumber class="form-control" @bind-Value="precio"></InputNumber>
+        </div>
+
+        <div class="col-2">
+            <InputNumber class="form-control" @bind-Value="cantidad"></InputNumber>
+        </div>
+
+        <div class="col-2">
+            <button class="btn btn-primary" @onclick="RegistrarProducto">Agregar</button>
+        </div>
+        <div class="col-2">
+            <button class="btn btn-success" @onclick="TerminarVenta">Terminar</button>
+        </div>
+
+
+    </div>
+    <hr />
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Precio</th>
+                <th>Cantidad</th>
+                <th>Sub Total</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in venta.Detalleventa)
+            {
+                <tr>
+                    <td>@item.Producto!.Nombre</td>
+                    <td>@item.Producto.Precio</td>
+                    <td>@item.Cantidad</td>
+                    <td>@item.Subtotal</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger"
+                                @onclick="@(() => EliminarProducto(item.Producto.Idproducto))">
+                            <span class="oi oi-trash"></span>
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+</div>
+
+@code{
+    List<ProductoDTO> listaProducto = new List<ProductoDTO>();
+    VentaDTO venta = new VentaDTO() { Detalleventa = new List<DetalleventaDTO>() };
+    int idproduto = 0;
+    int cantidad = 0;
+    decimal? precio = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        listaProducto = await productoService.Listar();
+    }
+
+    public void ProductoSeleccionado(ChangeEventArgs e)
+    {
+        int id = Convert.ToInt32(e.Value!.ToString());
+
+        if (id != 0)
+            this.precio = this.listaProducto.Find(p => p.Idproducto == id)!.Precio;
+        else
+            this.precio = 0;
+
+        this.idproduto = id;
+        this.cantidad = 0;
+    }
+
+    private void RegistrarProducto()
+    {
+        if (this.idproduto == 0)
+            return;
+        else if (venta.Detalleventa.FirstOrDefault(p => p.Producto!.Idproducto == this.idproduto) != null)
+            return;
+        else
+            venta.Detalleventa.Add(new DetalleventaDTO
+                {
+                    Producto = new ProductoDTO
+                    {
+                        Idproducto = this.idproduto,
+                        Nombre = this.listaProducto.Find(p => p.Idproducto == this.idproduto)!.Nombre,
+                        Precio = this.listaProducto.Find(p => p.Idproducto == this.idproduto)!.Precio
+                    },
+                    Cantidad = this.cantidad,
+                    Subtotal = this.cantidad * this.precio
+                });
+        this.cantidad = 0;
+        this.precio = 0;
+        this.idproduto = 0;
+    }
+
+    public void EliminarProducto(int id)
+    {
+        var producto = venta.Detalleventa.First(p => p.Producto!.Idproducto == id);
+
+        venta.Detalleventa.Remove(producto);
+    }
+
+    public async Task TerminarVenta()
+    {
+        venta.Total = venta.Detalleventa.Sum(p => p.Subtotal);
+        var result = await this.ventaService.Registrar(venta);
+
+        if (result)
+        {
+            venta.Cliente = "";
+            venta.Detalleventa = new List<DetalleventaDTO>();
+        }
+    }
+
+}

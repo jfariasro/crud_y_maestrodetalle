@@ -1,0 +1,130 @@
+﻿@page "/producto"
+@using AppWebBlazor.Client.Services.Interfaces
+@using AppWebBlazor.Shared
+
+@inject IProductoService productoService;
+
+<PageTitle>Producto</PageTitle>
+
+<h3>Producto de Razor</h3>
+
+<div class="content">
+    <div class="row">
+
+        <input type="hidden" name="name" value="@idproducto" />
+
+        <div class="col-4">
+            <InputText class="form-control" @bind-Value="nombre"></InputText>
+        </div>
+
+        <div class="col-4">
+            <InputNumber class="form-control" @bind-Value="precio"></InputNumber>
+        </div>
+
+        <div class="col-4">
+            <button class="btn btn-primary" @onclick="GuardarProducto">Guardar</button>
+        </div>
+
+    </div>
+    <hr />
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Precio</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in listaProducto)
+            {
+                <tr>
+                    <td>@item.Nombre</td>
+                    <td>@item.Precio</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning"
+                                @onclick="@(() => EditarProducto(item.Idproducto))">
+                            <span class="oi oi-pencil"></span>
+                        </button>
+                        <button class="btn btn-sm btn-danger"
+                                @onclick="@(() => EliminarProducto(item.Idproducto))">
+                            <span class="oi oi-trash"></span>
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+</div>
+
+@code {
+    List<ProductoDTO> listaProducto = new List<ProductoDTO>();
+    int idproducto = 0;
+    string nombre = "";
+    decimal? precio = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarListaProductos();
+    }
+
+    private async Task CargarListaProductos()
+    {
+        listaProducto = new List<ProductoDTO>();
+        listaProducto = await productoService.Listar();
+    }
+
+    private async void GuardarProducto()
+    {
+        bool result = false;
+
+        var productoDTO = new ProductoDTO()
+            {
+                Idproducto = this.idproducto,
+                Nombre = this.nombre,
+                Precio = this.precio
+            };
+
+        if(this.idproducto == 0)
+        {
+            result = await this.productoService.Registrar(productoDTO);
+        }
+        else
+        {
+            result = await this.productoService.Editar(this.idproducto, productoDTO);
+        }
+
+        if (result)
+        {
+            this.idproducto = 0;
+            this.nombre = "";
+            this.precio = 0;
+
+            await CargarListaProductos();
+            StateHasChanged();
+        }
+    }
+
+    private void EditarProducto(int id)
+    {
+        var producto = listaProducto.First(p => p.Idproducto == id);
+
+        this.idproducto = id;
+        this.nombre = producto.Nombre;
+        this.precio = producto.Precio;
+    }
+
+    private async void EliminarProducto(int id)
+    {
+        var result = await this.productoService.Eliminar(id);
+
+        if (result)
+        {
+
+            await CargarListaProductos();
+            StateHasChanged();
+        }
+    }
+}
